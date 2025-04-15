@@ -74,7 +74,7 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.0.2";
 
         public static CameraRigController camera;
 
@@ -153,7 +153,7 @@ namespace src
                 // Go next keybind
                 ConfigDescription cdesc = new ConfigDescription("Which key to use to show the next interactable in the recap.");
                 ConfigDefinition cdef = new ConfigDefinition("Keybinds", "Next interactable");
-                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.Mouse1);
+                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.Mouse0);
                 kbGoNext = Config.Bind(cdef, defaultKey, cdesc);
 
                 if (RiskOfOptionsStuff.enabled)
@@ -164,7 +164,7 @@ namespace src
                 // Go previous keybind
                 ConfigDescription cdesc = new ConfigDescription("Which key to use to show the previous interactable in the recap.");
                 ConfigDefinition cdef = new ConfigDefinition("Keybinds", "Previous interactable");
-                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.Mouse2);
+                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.Mouse1);
                 kbGoPrevious = Config.Bind(cdef, defaultKey, cdesc);
 
                 if (RiskOfOptionsStuff.enabled)
