@@ -37,6 +37,7 @@ namespace src
                 this.gpc = gpc;
             }
         }
+
         public class ScrapperInteractable : Interactable
         {
             public ScrapperController sc;
@@ -47,6 +48,7 @@ namespace src
                 this.sc = sc;
             }
         }
+
         public class PotentialInteractable : Interactable
         {
             public PickupPickerController ppc;
@@ -57,6 +59,7 @@ namespace src
                 this.ppc = ppc;
             }
         }
+
         public class BarrelInteractable : Interactable
         {
             public BarrelInteraction bi;
@@ -233,7 +236,7 @@ namespace src
             {
                 e(a);
 
-                if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare.
+                if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare and therefore less obtrusive.
                 {
                     if (a.displayNameToken == "DUPLICATOR_NAME")
                         return;
@@ -274,7 +277,6 @@ namespace src
 
                 interactables.Add(pi);
             };
-
 
             On.RoR2.PickupPickerController.OnEnable += (e, a) =>
             {
@@ -420,6 +422,7 @@ namespace src
 
             cama.SetCamPosition(remainingInteractables[index].position + new Vector3(0, 0.5f, 0));
         }
+
         private void DecrementCameraPosition()
         {
             index--;
@@ -441,7 +444,6 @@ namespace src
 
             cama.SetCamPosition(remainingInteractables[index].position + new Vector3(0, 0.5f, 0));
         }
-
 
         private void StartCamera()
         {
@@ -577,13 +579,9 @@ namespace src
                 if (cameraState.distance <= 1)
                     cameraState.distance = 1;
             }
-
-
         }
 
-        public void GetCameraState(CameraRigController cameraRigController, ref CameraState _cameraState)
-        {
-        }
+        public void GetCameraState(CameraRigController cameraRigController, ref CameraState _cameraState) { }
 
         public bool IsHudAllowed(CameraRigController cameraRigController)
         {
