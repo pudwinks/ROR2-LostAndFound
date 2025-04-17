@@ -74,7 +74,7 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.0.2";
+        public const string PluginVersion = "1.0.3";
 
         public static CameraRigController camera;
 
@@ -236,11 +236,6 @@ namespace src
             {
                 e(a);
 
-                if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare and therefore less obtrusive.
-                {
-                    if (a.displayNameToken == "DUPLICATOR_NAME")
-                        return;
-                }
 
                 if (a.displayNameToken == "SHRINE_COMBAT_NAME")
                     return;
@@ -249,11 +244,20 @@ namespace src
                 if (a.displayNameToken == "SHRINE_HEALING_NAME")
                     return;
 
+                if (a.displayNameToken == "LOCKEDTREEBOT_NAME")
+                    return;
+
                 if (a.displayNameToken == "FAN_NAME")
                     return;
 
                 if (a.displayNameToken == "NEWT_STATUE_NAME" && !cnfgShowNewtAltars.Value)
                     return;
+
+                if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare and therefore less obtrusive.
+                {
+                    if (a.displayNameToken == "DUPLICATOR_NAME")
+                        return;
+                }
 
                 if (!cnfgShowDrones.Value) // Will still show TC-280 because it's cool.
                 {
