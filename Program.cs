@@ -27,6 +27,31 @@ namespace src
             }
         }
 
+        public class Printer3DInteractable : Interactable
+        {
+            public PurchaseInteraction pi;
+
+            public bool usedPrinter;
+
+            public Printer3DInteractable(Vector3 position, PurchaseInteraction pi)
+            {
+                this.position = position;
+                this.pi = pi;
+            }
+
+        }
+
+        public class MultiShopInteractable : Interactable
+        {
+            public MultiShopController msc;
+
+            public MultiShopInteractable(Vector3 position, MultiShopController msc)
+            {
+                this.position = position;
+                this.msc = msc;
+            }
+        }
+
         public class GenericPickupControllerInteractable : Interactable
         {
             public GenericPickupController gpc;
@@ -41,6 +66,8 @@ namespace src
         public class ScrapperInteractable : Interactable
         {
             public ScrapperController sc;
+
+            public bool usedScrapper;
 
             public ScrapperInteractable(Vector3 position, ScrapperController sc)
             {
@@ -74,11 +101,12 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.0.3";
+        public const string PluginVersion = "1.0.4";
 
         public static CameraRigController camera;
 
         public static bool recapRunning;
+
         int index = -1;
 
         public ListWithEvents<Interactable> interactables = new();
@@ -89,12 +117,14 @@ namespace src
         ConfigEntry<bool> cnfgShowItemsOnGround;
         ConfigEntry<bool> cnfgShowDrones;
         ConfigEntry<bool> cnfgShow3DPrinters;
-
+        ConfigEntry<bool> cnfgShowLunarPods;
         ConfigEntry<KeyboardShortcut> kbGoNext;
         ConfigEntry<KeyboardShortcut> kbGoPrevious;
         ConfigEntry<KeyboardShortcut> kbFinishRecap;
         public static ConfigEntry<KeyboardShortcut> kbZoomIn;
         public static ConfigEntry<KeyboardShortcut> kbZoomOut;
+
+        public bool didScrap;
 
         private void InitializeRiskOfOptions()
         {
@@ -107,10 +137,31 @@ namespace src
                 if (RiskOfOptionsStuff.enabled)
                     RiskOfOptionsStuff.AddOption(cnfgShowNewtAltars);
             }
+
             {
-                // Show 3D printers
+                // Show items on ground
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see items on the ground in the recap. If you forgot to pick something up, it'll show up.");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show items on ground");
+                cnfgShowItemsOnGround = Config.Bind(cdef, true, cdesc);
+
+                if (RiskOfOptionsStuff.enabled)
+                    RiskOfOptionsStuff.AddOption(cnfgShowItemsOnGround);
+            }
+
+            {
+                // Show lunar pods
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see lunar pods in the recap.");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show lunar pods");
+                cnfgShowLunarPods = Config.Bind(cdef, false, cdesc);
+
+                if (RiskOfOptionsStuff.enabled)
+                    RiskOfOptionsStuff.AddOption(cnfgShowLunarPods);
+            }
+
+            {
+                // Show white/green 3D printers
                 ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see white and green 3D printers in the recap. Setting this to false will only hide white and green printers, since they are the most common. Red and boss printers remain visible regardless of this setting.");
-                ConfigDefinition cdef = new ConfigDefinition("General", "Show 3D printers");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show white/green 3D printers");
                 cnfgShow3DPrinters = Config.Bind(cdef, true, cdesc);
 
                 if (RiskOfOptionsStuff.enabled)
@@ -135,16 +186,6 @@ namespace src
 
                 if (RiskOfOptionsStuff.enabled)
                     RiskOfOptionsStuff.AddOption(cnfgShowBarrels);
-            }
-
-            {
-                // Show items on ground
-                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see items on the ground in the recap. If you forgot to pick something up, it'll show up.");
-                ConfigDefinition cdef = new ConfigDefinition("General", "Show items on ground");
-                cnfgShowItemsOnGround = Config.Bind(cdef, true, cdesc);
-
-                if (RiskOfOptionsStuff.enabled)
-                    RiskOfOptionsStuff.AddOption(cnfgShowItemsOnGround);
             }
 
             // Keybinds
@@ -197,7 +238,7 @@ namespace src
                 // Finish recap keybind
                 ConfigDescription cdesc = new ConfigDescription("Which key to use to finish the recap once it's started.");
                 ConfigDefinition cdef = new ConfigDefinition("Keybinds", "Finish recap");
-                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.W);
+                KeyboardShortcut defaultKey = new KeyboardShortcut(KeyCode.S);
                 kbFinishRecap = Config.Bind(cdef, defaultKey, cdesc);
 
                 if (RiskOfOptionsStuff.enabled)
@@ -232,10 +273,65 @@ namespace src
                 interactables.Add(si);
             };
 
+            On.RoR2.PurchaseInteraction.OnInteractionBegin += (e, a, b) =>
+            {
+                e(a, b);
+
+                if (a.displayNameToken == "DUPLICATOR_NAME" || a.displayNameToken == "DUPLICATOR_MILITARY_NAME" || a.displayNameToken == "DUPLICATOR_WILD_NAME")
+                {
+                    for (global::System.Int32 i = 0; i < interactables.Count; i++)
+                    {
+                        if (interactables[i] is Printer3DInteractable pdi)
+                        {
+                            if (pdi.pi == a)
+                            {
+                                pdi.usedPrinter = true;
+                            }
+                        }
+                    }
+                }
+            };
+
+            On.RoR2.ScrapperController.BeginScrapping += (e, a, b) =>
+            {
+                e(a, b);
+
+                didScrap = true;
+            };
+
+            On.RoR2.MultiShopController.Start += (e, a) =>
+            {
+                e(a);
+
+                MultiShopInteractable msi = new MultiShopInteractable(a.transform.position, a);
+
+                interactables.Add(msi);
+            };
+
             On.RoR2.PurchaseInteraction.Start += (e, a) =>
             {
                 e(a);
 
+                if (a.displayNameToken == "FROG_NAME")
+                    return;
+
+                if (a.displayNameToken == "BAZAAR_CAULDRON_NAME")
+                    return;
+
+                if (a.displayNameToken == "MOON_BATTERY_SOUL_NAME")
+                    return;
+                if (a.displayNameToken == "MOON_BATTERY_BLOOD_NAME")
+                    return;
+                if (a.displayNameToken == "MOON_BATTERY_DESIGN_NAME")
+                    return;
+                if (a.displayNameToken == "MOON_BATTERY_MASS_NAME")
+                    return;
+
+                if (a.name == "PortalDialer")
+                    return;
+
+                if (a.displayNameToken == "VENDING_MACHINE_NAME")
+                    return;
 
                 if (a.displayNameToken == "SHRINE_COMBAT_NAME")
                     return;
@@ -247,10 +343,19 @@ namespace src
                 if (a.displayNameToken == "LOCKEDTREEBOT_NAME")
                     return;
 
+                if (a.displayNameToken == "MULTISHOP_TERMINAL_NAME")
+                    return;
+
                 if (a.displayNameToken == "FAN_NAME")
                     return;
 
+                if (a.displayNameToken == "NULL_WARD_NAME")
+                    return;
+
                 if (a.displayNameToken == "NEWT_STATUE_NAME" && !cnfgShowNewtAltars.Value)
+                    return;
+
+                if (a.displayNameToken == "LUNAR_CHEST_NAME" && !cnfgShowLunarPods.Value)
                     return;
 
                 if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare and therefore less obtrusive.
@@ -277,9 +382,22 @@ namespace src
                         return;
                 }
 
-                PurchaseInteractable pi = new PurchaseInteractable(a.transform.position, a);
+                if (a.displayNameToken == "DUPLICATOR_NAME" || a.displayNameToken == "DUPLICATOR_MILITARY_NAME" || a.displayNameToken == "DUPLICATOR_WILD_NAME")
+                {
+                    Printer3DInteractable pdi;
 
-                interactables.Add(pi);
+                    pdi = new Printer3DInteractable(a.transform.position, a);
+
+                    interactables.Add(pdi);
+                }
+                else
+                {
+                    PurchaseInteractable pi;
+
+                    pi = new PurchaseInteractable(a.transform.position, a);
+
+                    interactables.Add(pi);
+                }
             };
 
             On.RoR2.PickupPickerController.OnEnable += (e, a) =>
@@ -302,6 +420,9 @@ namespace src
                 e(a);
 
                 if (!cnfgShowItemsOnGround.Value)
+                    return;
+
+                if (a.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
                     return;
 
                 GenericPickupControllerInteractable gpci = new GenericPickupControllerInteractable(a.transform.position, a);
@@ -339,6 +460,7 @@ namespace src
         {
             Time.timeScale = 1f;
             recapRunning = false;
+            didScrap = false;
             cama.End();
             ClearLists();
         }
@@ -349,6 +471,8 @@ namespace src
 
             if (remainingInteractables.Count == 0)
                 return;
+
+            index = -1;
 
             Time.timeScale = 0f;
             StartCamera();
@@ -376,8 +500,18 @@ namespace src
                             remainingInteractables.Add(interactables[i]);
                         break;
 
+                    case Printer3DInteractable pdi:
+                        if (pdi.pi == null)
+                            break;
+                        if (pdi.usedPrinter)
+                            break;
+                        remainingInteractables.Add(interactables[i]);
+                        break;
+
                     case ScrapperInteractable si:
                         if (si.sc == null)
+                            break;
+                        if (didScrap)
                             break;
                         remainingInteractables.Add(interactables[i]);
                         break;
@@ -399,6 +533,13 @@ namespace src
                         if (bi.bi == null)
                             break;
                         if (!bi.bi.opened)
+                            remainingInteractables.Add(interactables[i]);
+                        break;
+
+                    case MultiShopInteractable msi:
+                        if (msi.msc == null)
+                            break;
+                        if (msi.msc.available)
                             remainingInteractables.Add(interactables[i]);
                         break;
                 }
@@ -458,8 +599,6 @@ namespace src
             cama = cam.AddComponent<Camera>();
 
             cama.Start();
-
-            index = -1;
 
             IncrementCameraPosition();
         }
