@@ -24,7 +24,7 @@ You do not need to restart the game to apply the changes using `Risk Of Options`
 
 `D` to zoom in the camera.
 
-`W` to end the recap and resume time.
+`S` to end the recap and resume time.
 
 These are all configurable. Set them to whatever you want - these are just the defaults.
 ## FAQ
