@@ -1,5 +1,5 @@
 # Lost & Found
-This mod does work with StageRecap. You might want to turn off the scanner in its config though.
+##### This mod does work with StageRecap. You might want to turn off the scanner in its config though.
 
 Lost & Found is a mod which pauses time at the end of each stage and gives you a camera view of each interactable you missed.
 
