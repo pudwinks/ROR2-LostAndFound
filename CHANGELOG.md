@@ -1,3 +1,12 @@
+## 1.1.0
+StageRecap now functions correctly when used with this mod
+
+The recap now happens at the end of the teleporting instead of at the start
+
+No longer shows void items on ground
+
+(hopefully) Fixed bug with camera that happens sometimes
+
 ## 1.0.4
 Added option to see lunar pods
 
