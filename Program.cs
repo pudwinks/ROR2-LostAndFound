@@ -101,9 +101,8 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.0.4";
+        public const string PluginVersion = "1.1.0";
 
-        public static CameraRigController camera;
 
         public static bool recapRunning;
 
@@ -425,9 +424,22 @@ namespace src
                 if (a.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
                     return;
 
+                ItemTier tier = a.pickupIndex.pickupDef.itemTier;
+                if (tier == ItemTier.VoidTier1 || tier == ItemTier.VoidTier2 || tier == ItemTier.VoidTier3)
+                    return;
+
                 GenericPickupControllerInteractable gpci = new GenericPickupControllerInteractable(a.transform.position, a);
 
                 interactables.Add(gpci);
+            };
+
+            RoR2.SceneExitController.onFinishExit += (e) =>
+            {
+                if (!RoR2Application.isInSinglePlayer)
+                    return;
+
+                if (SceneCatalog.currentSceneDef.baseSceneName != "bazaar")
+                    StartMissingInteractableFinder();
             };
 
             On.RoR2.Run.OnDestroy += (e, a) =>
@@ -437,24 +449,8 @@ namespace src
                 EndMissingInteractableFinder();
             };
 
-            On.RoR2.CameraRigController.OnEnable += (e, a) =>
-            {
-                e(a);
-
-                camera = a;
-            };
-
-            On.RoR2.SceneExitController.Begin += (e, a) =>
-            {
-                e(a);
-
-                if (!RoR2Application.isInSinglePlayer)
-                    return;
-
-                if (SceneCatalog.currentSceneDef.baseSceneName != "bazaar")
-                    StartMissingInteractableFinder();
-            };
         }
+
 
         private void EndMissingInteractableFinder()
         {
@@ -553,12 +549,6 @@ namespace src
             if (remainingInteractables.Count == 0)
                 return;
 
-            if (camera == null)
-            {
-                Logger.LogDebug("Camera was null.");
-                return;
-            }
-
             if (index < 0)
                 index = 0;
 
@@ -575,12 +565,6 @@ namespace src
             if (remainingInteractables.Count == 0)
                 return;
 
-            if (camera == null)
-            {
-                Logger.LogDebug("Camera was null.");
-                return;
-            }
-
             if (index < 0)
                 index = 0;
 
@@ -592,10 +576,12 @@ namespace src
 
         private void StartCamera()
         {
+            camera = RoR2.PlayerCharacterMasterController.instances[0].networkUser.cameraRigController;
+
             if (cam != null)
                 Destroy(cam);
 
-            cam = new GameObject("MissingInteractables_Camera");
+            cam = new GameObject("LostAndFound_Camera");
             cama = cam.AddComponent<Camera>();
 
             cama.Start();
@@ -605,6 +591,8 @@ namespace src
 
         Camera cama;
         GameObject cam;
+
+        public static CameraRigController camera;
 
         private void Update()
         {
