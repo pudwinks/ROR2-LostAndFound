@@ -64,7 +64,7 @@ namespace src
                     ChestBehavior component = pi.GetComponent<ChestBehavior>();
                     if (component)
                     {
-                        CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0), pi.gameObject, PickupCatalog.GetPickupDef(component.dropPickup));
+                        CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0), pi.gameObject, PickupCatalog.GetPickupDef(component.currentPickup.pickupIndex));
                     }
                 }
                 else if (pi.displayNameToken.Contains("CHANCE"))
@@ -80,7 +80,7 @@ namespace src
                             if (component.rng.nextNormalizedFloat > component.failureChance)
                             {
                                 var angle = anglePerOrb * succcs;
-                                CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.dropTable.GenerateDrop(component.rng)));
+                                CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.dropTable.GeneratePickup(component.rng).pickupIndex));
                                 succcs++;
                             }
                         }
@@ -91,13 +91,13 @@ namespace src
                     OptionChestBehavior component = pi.GetComponent<OptionChestBehavior>();
                     if (component)
                     {
-                        var anglePerOrb = 360f / component.generatedDrops.Length;
+                        var anglePerOrb = 360f / component.generatedPickups.Count;
                         var posOffset = new Vector3(0, 0, 1f);
 
-                        for (int i = 0; i < component.generatedDrops.Length; i++)
+                        for (int i = 0; i < component.generatedPickups.Count; i++)
                         {
                             var angle = anglePerOrb * i;
-                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.generatedDrops[i]));
+                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.generatedPickups[i].pickupIndex));
                         }
                     }
                 }
@@ -112,7 +112,7 @@ namespace src
                         {
                             var angle = anglePerOrb * i;
                             component.RollItem(); //scav drops just roll twice, don't ask why
-                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 6.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.dropPickup));
+                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 6.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.currentPickup.pickupIndex));
                             for (int j = 0; j < component.dropCount; j++)
                             {
                                 component.Roll();
@@ -152,7 +152,7 @@ namespace src
                     ShopTerminalBehavior component = terminal.GetComponent<ShopTerminalBehavior>();
                     if (component)
                     {
-                        CreateDropOrb(terminal.transform.position + new Vector3(0, 5f, 0), terminal, PickupCatalog.GetPickupDef(component.pickupIndex));
+                        CreateDropOrb(terminal.transform.position + new Vector3(0, 5f, 0), terminal, PickupCatalog.GetPickupDef(component.Networkpickup.pickupIndex));
                     }
                 }
             }
@@ -201,7 +201,7 @@ namespace src
                     if (ppc.options[i].available) //leaves a hole for picked halc fragment loot options
                     {
                         var angle = anglePerOrb * i;
-                        CreateDropOrb(ppc.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), ppc.gameObject, PickupCatalog.GetPickupDef(ppc.options[i].pickupIndex));
+                        CreateDropOrb(ppc.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), ppc.gameObject, PickupCatalog.GetPickupDef(ppc.options[i].pickup.pickupIndex));
                     }
                 }
             }
@@ -407,9 +407,9 @@ namespace src
 
             };
 
-            On.RoR2.ScrapperController.Start += (e, a) =>
+            On.RoR2.ScrapperController.AssignPotentialInteractor += (e, a, i) =>
             {
-                e(a);
+                e(a, i);
 
                 ScrapperInteractable si = new ScrapperInteractable(a.transform.position, a);
 
@@ -435,7 +435,7 @@ namespace src
                 }
             };
 
-            On.RoR2.ScrapperController.BeginScrapping += (e, a, b) =>
+            On.RoR2.ScrapperController.BeginScrapping_UniquePickup += (e, a, b) =>
             {
                 e(a, b);
 
@@ -565,10 +565,10 @@ namespace src
                 if (!cnfgShowItemsOnGround.Value)
                     return;
 
-                if (a.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
+                if (a.pickup.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
                     return;
 
-                ItemTier tier = a.pickupIndex.pickupDef.itemTier;
+                ItemTier tier = a.pickup.pickupIndex.pickupDef.itemTier;
                 if (tier == ItemTier.VoidTier1 || tier == ItemTier.VoidTier2 || tier == ItemTier.VoidTier3)
                     return;
 
