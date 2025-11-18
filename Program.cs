@@ -92,7 +92,7 @@ namespace src
                     if (component)
                     {
                         var anglePerOrb = 360f / component.generatedPickups.Count;
-                        var posOffset = new Vector3(0, 0, 1f);
+                        var posOffset = new Vector3(0, 0, 1f + (.16f * component.generatedPickups.Count));
 
                         for (int i = 0; i < component.generatedPickups.Count; i++)
                         {
@@ -407,9 +407,9 @@ namespace src
 
             };
 
-            On.RoR2.ScrapperController.AssignPotentialInteractor += (e, a, i) =>
+            On.RoR2.ScrapperController.PreStartClient += (e, a) =>
             {
-                e(a, i);
+                e(a);
 
                 ScrapperInteractable si = new ScrapperInteractable(a.transform.position, a);
 
