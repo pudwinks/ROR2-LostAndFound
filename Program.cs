@@ -3,6 +3,7 @@ using BepInEx.Configuration;
 using Rewired;
 using RoR2;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace src
 {
@@ -11,9 +12,24 @@ namespace src
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
     public class LostAndFound : BaseUnityPlugin
     {
+        private static GameObject _effectPrefab;
         public abstract class Interactable
         {
             public Vector3 position;
+
+            public virtual void SimulateDrop() { }
+
+            internal void CreateDropOrb(Vector3 effectOrigin, GameObject targetObject, PickupDef pickupDef)
+            {
+                EffectData effectData = new EffectData
+                {
+                    origin = effectOrigin,
+                    genericFloat = 1.5f,
+                    genericUInt = (uint)(pickupDef.pickupIndex.value + 1)
+                };
+                effectData.SetNetworkedObjectReference(targetObject);
+                EffectManager.SpawnEffect(_effectPrefab, effectData, transmit: false);
+            }
         }
 
         public class PurchaseInteractable : Interactable
@@ -24,6 +40,70 @@ namespace src
             {
                 this.position = position;
                 this.pi = pi;
+            }
+            public override void SimulateDrop()
+            {
+                if (pi.displayNameToken.Contains("CHEST") || pi.displayNameToken.Contains("EQUIPMENTBARREL"))
+                {
+                    ChestBehavior component = pi.GetComponent<ChestBehavior>();
+                    if (component)
+                    {
+                        CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0), pi.gameObject, PickupCatalog.GetPickupDef(component.currentPickup.pickupIndex));
+                    }
+                }
+                else if (pi.displayNameToken.Contains("CHANCE"))
+                {
+                    ShrineChanceBehavior component = pi.GetComponent<ShrineChanceBehavior>();
+                    if (component)
+                    {
+                        var anglePerOrb = 360f / component.maxPurchaseCount;
+                        var posOffset = Quaternion.AngleAxis(90, Vector3.up) * pi.gameObject.transform.forward * 2; //facing the shrine, the one on the left should be first
+                        int succcs = component.successfulPurchaseCount;
+                        while (succcs < component.maxPurchaseCount)
+                        {
+                            if (component.rng.nextNormalizedFloat > component.failureChance)
+                            {
+                                var angle = anglePerOrb * succcs;
+                                CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.dropTable.GeneratePickup(component.rng).pickupIndex));
+                                succcs++;
+                            }
+                        }
+                    }
+                }
+                else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME")
+                {
+                    OptionChestBehavior component = pi.GetComponent<OptionChestBehavior>();
+                    if (component)
+                    {
+                        var anglePerOrb = 360f / component.generatedPickups.Count;
+                        var posOffset = new Vector3(0, 0, 1f + (.16f * component.generatedPickups.Count));
+
+                        for (int i = 0; i < component.generatedPickups.Count; i++)
+                        {
+                            var angle = anglePerOrb * i;
+                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.generatedPickups[i].pickupIndex));
+                        }
+                    }
+                }
+                else if (pi.displayNameToken == "SCAVBACKPACK_NAME")
+                {
+                    ChestBehavior component = pi.GetComponent<ChestBehavior>();
+                    if (component)
+                    {
+                        float anglePerOrb = 360f / 10;
+                        var posOffset = new Vector3(0, 0, 4f);
+                        for (int i = 0; i < 10; i++)
+                        {
+                            var angle = anglePerOrb * i;
+                            component.RollItem(); //scav drops just roll twice, don't ask why
+                            CreateDropOrb(pi.gameObject.transform.position + new Vector3(0, 6.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), pi.gameObject, PickupCatalog.GetPickupDef(component.currentPickup.pickupIndex));
+                            for (int j = 0; j < component.dropCount; j++)
+                            {
+                                component.Roll();
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -38,7 +118,6 @@ namespace src
                 this.position = position;
                 this.pi = pi;
             }
-
         }
 
         public class MultiShopInteractable : Interactable
@@ -49,6 +128,17 @@ namespace src
             {
                 this.position = position;
                 this.msc = msc;
+            }
+            public override void SimulateDrop()
+            {
+                foreach (var terminal in msc.terminalGameObjects)
+                {
+                    ShopTerminalBehavior component = terminal.GetComponent<ShopTerminalBehavior>();
+                    if (component)
+                    {
+                        CreateDropOrb(terminal.transform.position + new Vector3(0, 5f, 0), terminal, PickupCatalog.GetPickupDef(component.Networkpickup.pickupIndex));
+                    }
+                }
             }
         }
 
@@ -85,6 +175,20 @@ namespace src
                 this.position = position;
                 this.ppc = ppc;
             }
+            public override void SimulateDrop()
+            {
+                var anglePerOrb = 360f / ppc.options.Length;
+                var posOffset = new Vector3(0, 0, 1f + (.16f * ppc.options.Length)); //expand radius as options added
+
+                for (int i = 0; i < ppc.options.Length; i++)
+                {
+                    if (ppc.options[i].available) //leaves a hole for picked halc fragment loot options
+                    {
+                        var angle = anglePerOrb * i;
+                        CreateDropOrb(ppc.gameObject.transform.position + new Vector3(0, 3.5f, 0) + (Quaternion.AngleAxis(angle, Vector3.up) * posOffset), ppc.gameObject, PickupCatalog.GetPickupDef(ppc.options[i].pickup.pickupIndex));
+                    }
+                }
+            }
         }
 
         public class BarrelInteractable : Interactable
@@ -117,6 +221,7 @@ namespace src
         ConfigEntry<bool> cnfgShowDrones;
         ConfigEntry<bool> cnfgShow3DPrinters;
         ConfigEntry<bool> cnfgShowLunarPods;
+        ConfigEntry<bool> cnfgShowContents;
         ConfigEntry<KeyboardShortcut> kbGoNext;
         ConfigEntry<KeyboardShortcut> kbGoPrevious;
         ConfigEntry<KeyboardShortcut> kbFinishRecap;
@@ -187,6 +292,16 @@ namespace src
                     RiskOfOptionsStuff.AddOption(cnfgShowBarrels);
             }
 
+            {
+                // Show sprites
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see container contents in the recap.");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show container contents");
+                cnfgShowContents = Config.Bind(cdef, true, cdesc);
+
+                if (RiskOfOptionsStuff.enabled)
+                    RiskOfOptionsStuff.AddOption(cnfgShowContents);
+            }
+
             // Keybinds
 
             {
@@ -246,9 +361,16 @@ namespace src
 
         }
 
+        private void InitializeEquipmentEffect()
+        {
+            _effectPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/MealPrep/PickupTakenOrbEffect.prefab").WaitForCompletion();
+        }
+
         public void Awake()
         {
             InitializeRiskOfOptions();
+
+            InitializeEquipmentEffect();
 
             On.RoR2.BarrelInteraction.OnEnable += (e, a) =>
             {
@@ -263,7 +385,7 @@ namespace src
 
             };
 
-            On.RoR2.ScrapperController.Start += (e, a) =>
+            On.RoR2.ScrapperController.PreStartClient += (e, a) =>
             {
                 e(a);
 
@@ -291,7 +413,7 @@ namespace src
                 }
             };
 
-            On.RoR2.ScrapperController.BeginScrapping += (e, a, b) =>
+            On.RoR2.ScrapperController.BeginScrapping_UniquePickup += (e, a, b) =>
             {
                 e(a, b);
 
@@ -421,10 +543,10 @@ namespace src
                 if (!cnfgShowItemsOnGround.Value)
                     return;
 
-                if (a.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
+                if (a.pickup.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
                     return;
 
-                ItemTier tier = a.pickupIndex.pickupDef.itemTier;
+                ItemTier tier = a.pickup.pickupIndex.pickupDef.itemTier;
                 if (tier == ItemTier.VoidTier1 || tier == ItemTier.VoidTier2 || tier == ItemTier.VoidTier3)
                     return;
 
@@ -469,6 +591,14 @@ namespace src
                 return;
 
             index = -1;
+
+            if (cnfgShowContents.Value)
+            {
+                foreach (var interactable in remainingInteractables)
+                {
+                    interactable.SimulateDrop();
+                }
+            }
 
             Time.timeScale = 0f;
             StartCamera();
