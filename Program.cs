@@ -1,10 +1,9 @@
 using BepInEx;
 using BepInEx.Configuration;
-using RoR2.Orbs;
-using R2API;
 using Rewired;
 using RoR2;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace src
 {
@@ -13,38 +12,23 @@ namespace src
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
     public class LostAndFound : BaseUnityPlugin
     {
-        private static GameObject _equipPrefab;
-        private static GameObject _itemPrefab;
+        private static GameObject _effectPrefab;
         public abstract class Interactable
         {
             public Vector3 position;
 
             public virtual void SimulateDrop() { }
 
-            private void CreateOrbFromPrefab(Vector3 effectOrigin, GameObject targetObject, uint index, GameObject prefab)
+            internal void CreateDropOrb(Vector3 effectOrigin, GameObject targetObject, PickupDef pickupDef)
             {
                 EffectData effectData = new EffectData
                 {
                     origin = effectOrigin,
                     genericFloat = 1.5f,
-                    genericUInt = index + 1
+                    genericUInt = (uint)(pickupDef.pickupIndex.value + 1)
                 };
                 effectData.SetNetworkedObjectReference(targetObject);
-                EffectManager.SpawnEffect(prefab, effectData, transmit: false);
-            }
-
-            internal void CreateDropOrb(Vector3 effectOrigin, GameObject targetObject, PickupDef pickupDef)
-            {
-                EquipmentIndex equipIndex = pickupDef?.equipmentIndex ?? EquipmentIndex.None;
-                ItemIndex itemIndex = pickupDef?.itemIndex ?? ItemIndex.None;
-                if (equipIndex != EquipmentIndex.None)
-                {
-                    CreateOrbFromPrefab(effectOrigin, targetObject, (uint)equipIndex, _equipPrefab);
-                }
-                else if (itemIndex != ItemIndex.None)
-                {
-                    CreateOrbFromPrefab(effectOrigin, targetObject, (uint)itemIndex, _itemPrefab);
-                }
+                EffectManager.SpawnEffect(_effectPrefab, effectData, transmit: false);
             }
         }
 
@@ -379,13 +363,7 @@ namespace src
 
         private void InitializeEquipmentEffect()
         {
-            _itemPrefab = LegacyResourcesAPI.Load<GameObject>("Prefabs/Effects/OrbEffects/ItemTakenOrbEffect");
-            GameObject equipmentPrefab = _itemPrefab.InstantiateClone("EquipmentTakenOrbEffect");
-            var newEffect = equipmentPrefab.AddComponent<EquipmentTakenOrbEffect>();
-            equipmentPrefab.GetComponent<EquipmentTakenOrbEffect>().iconSpriteRenderer = equipmentPrefab.GetComponent<ItemTakenOrbEffect>().iconSpriteRenderer;
-            DestroyImmediate(equipmentPrefab.GetComponent<ItemTakenOrbEffect>());
-            _equipPrefab = equipmentPrefab;
-            ContentAddition.AddEffect(equipmentPrefab);
+            _effectPrefab = Addressables.LoadAssetAsync<GameObject>("RoR2/DLC3/MealPrep/PickupTakenOrbEffect.prefab").WaitForCompletion();
         }
 
         public void Awake()
