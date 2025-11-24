@@ -13,11 +13,12 @@ namespace src
     public class LostAndFound : BaseUnityPlugin
     {
         private static GameObject _effectPrefab;
+
         public abstract class Interactable
         {
-            public Vector3 position;
-
             public virtual void SimulateDrop() { }
+
+            public virtual Vector3 GetPosition() { return new Vector3(0, 0, 0); }
 
             internal void CreateDropOrb(Vector3 effectOrigin, GameObject targetObject, PickupDef pickupDef)
             {
@@ -27,6 +28,7 @@ namespace src
                     genericFloat = 1.5f,
                     genericUInt = (uint)(pickupDef.pickupIndex.value + 1)
                 };
+
                 effectData.SetNetworkedObjectReference(targetObject);
                 EffectManager.SpawnEffect(_effectPrefab, effectData, transmit: false);
             }
@@ -36,14 +38,19 @@ namespace src
         {
             public PurchaseInteraction pi;
 
-            public PurchaseInteractable(Vector3 position, PurchaseInteraction pi)
+            public PurchaseInteractable(PurchaseInteraction pi)
             {
-                this.position = position;
                 this.pi = pi;
             }
+
+            public override Vector3 GetPosition()
+            {
+                return pi.transform.position;
+            }
+
             public override void SimulateDrop()
             {
-                if (pi.displayNameToken.Contains("CHEST") || pi.displayNameToken.Contains("EQUIPMENTBARREL"))
+                if (pi.displayNameToken.Contains("CHEST") || pi.displayNameToken.Contains("EQUIPMENTBARREL") || pi.displayNameToken == "LOCKBOX_NAME")
                 {
                     ChestBehavior component = pi.GetComponent<ChestBehavior>();
                     if (component)
@@ -70,7 +77,7 @@ namespace src
                         }
                     }
                 }
-                else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME")
+                else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME" &&!cnfgShowVoidKeyContents.Value)
                 {
                     OptionChestBehavior component = pi.GetComponent<OptionChestBehavior>();
                     if (component)
@@ -113,10 +120,28 @@ namespace src
 
             public bool usedPrinter;
 
-            public Printer3DInteractable(Vector3 position, PurchaseInteraction pi)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return pi.transform.position;
+            }
+            public Printer3DInteractable(PurchaseInteraction pi)
+            {
                 this.pi = pi;
+            }
+        }
+
+        public class DroneMultiShopInteractable : Interactable
+        {
+            public DroneVendorMultiShopController dvmsc;
+
+            public override Vector3 GetPosition()
+            {
+                return dvmsc.transform.position;
+            }
+
+            public DroneMultiShopInteractable(DroneVendorMultiShopController dvmsc)
+            {
+                this.dvmsc = dvmsc;
             }
         }
 
@@ -124,11 +149,16 @@ namespace src
         {
             public MultiShopController msc;
 
-            public MultiShopInteractable(Vector3 position, MultiShopController msc)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return msc.transform.position;
+            }
+
+            public MultiShopInteractable(MultiShopController msc)
+            {
                 this.msc = msc;
             }
+
             public override void SimulateDrop()
             {
                 foreach (var terminal in msc.terminalGameObjects)
@@ -146,9 +176,13 @@ namespace src
         {
             public GenericPickupController gpc;
 
-            public GenericPickupControllerInteractable(Vector3 position, GenericPickupController gpc)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return gpc.transform.position;
+            }
+
+            public GenericPickupControllerInteractable(GenericPickupController gpc)
+            {
                 this.gpc = gpc;
             }
         }
@@ -159,9 +193,13 @@ namespace src
 
             public bool usedScrapper;
 
-            public ScrapperInteractable(Vector3 position, ScrapperController sc)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return sc.transform.position;
+            }
+
+            public ScrapperInteractable(ScrapperController sc)
+            {
                 this.sc = sc;
             }
         }
@@ -170,11 +208,16 @@ namespace src
         {
             public PickupPickerController ppc;
 
-            public PotentialInteractable(Vector3 position, PickupPickerController ppc)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return ppc.transform.position;
+            }
+
+            public PotentialInteractable(PickupPickerController ppc)
+            {
                 this.ppc = ppc;
             }
+
             public override void SimulateDrop()
             {
                 var anglePerOrb = 360f / ppc.options.Length;
@@ -195,9 +238,13 @@ namespace src
         {
             public BarrelInteraction bi;
 
-            public BarrelInteractable(Vector3 position, BarrelInteraction bi)
+            public override Vector3 GetPosition()
             {
-                this.position = position;
+                return bi.transform.position;
+            }
+
+            public BarrelInteractable(BarrelInteraction bi)
+            {
                 this.bi = bi;
             }
         }
@@ -205,8 +252,7 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.1.0";
-
+        public const string PluginVersion = "1.2.0";
 
         public static bool recapRunning;
 
@@ -219,9 +265,11 @@ namespace src
         ConfigEntry<bool> cnfgShowBarrels;
         ConfigEntry<bool> cnfgShowItemsOnGround;
         ConfigEntry<bool> cnfgShowDrones;
+        ConfigEntry<bool> cnfgShowDroneScrappers;
         ConfigEntry<bool> cnfgShow3DPrinters;
         ConfigEntry<bool> cnfgShowLunarPods;
         ConfigEntry<bool> cnfgShowContents;
+        public static ConfigEntry<bool> cnfgShowVoidKeyContents;
         ConfigEntry<KeyboardShortcut> kbGoNext;
         ConfigEntry<KeyboardShortcut> kbGoPrevious;
         ConfigEntry<KeyboardShortcut> kbFinishRecap;
@@ -244,7 +292,7 @@ namespace src
 
             {
                 // Show items on ground
-                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see items on the ground in the recap. If you forgot to pick something up, it'll show up.");
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see items on the ground in the recap. If you forgot to pick something up, it'll show up. Does not show void items.");
                 ConfigDefinition cdef = new ConfigDefinition("General", "Show items on ground");
                 cnfgShowItemsOnGround = Config.Bind(cdef, true, cdesc);
 
@@ -281,6 +329,15 @@ namespace src
                 if (RiskOfOptionsStuff.enabled)
                     RiskOfOptionsStuff.AddOption(cnfgShowDrones);
             }
+            {
+                // Show drone scrappers
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see drone scrappers in the recap.");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show drone scrappers");
+                cnfgShowDroneScrappers = Config.Bind(cdef, false, cdesc);
+
+                if (RiskOfOptionsStuff.enabled)
+                    RiskOfOptionsStuff.AddOption(cnfgShowDroneScrappers);
+            }
 
             {
                 // Show barrels
@@ -300,6 +357,15 @@ namespace src
 
                 if (RiskOfOptionsStuff.enabled)
                     RiskOfOptionsStuff.AddOption(cnfgShowContents);
+            }
+            {
+                // Show void key contents
+                ConfigDescription cdesc = new ConfigDescription("Set to true if you want to see the contents of Encrusted Caches (corrupted form of the Rusted Key lockbox). Irrelevant if \"Show container contents\" is false.");
+                ConfigDefinition cdef = new ConfigDefinition("General", "Show Encrusted Cache contents");
+                cnfgShowVoidKeyContents = Config.Bind(cdef, true, cdesc);
+
+                if (RiskOfOptionsStuff.enabled)
+                    RiskOfOptionsStuff.AddOption(cnfgShowVoidKeyContents);
             }
 
             // Keybinds
@@ -358,7 +424,6 @@ namespace src
                 if (RiskOfOptionsStuff.enabled)
                     RiskOfOptionsStuff.AddOption(kbFinishRecap);
             }
-
         }
 
         private void InitializeEquipmentEffect()
@@ -379,7 +444,7 @@ namespace src
                 if (!cnfgShowBarrels.Value)
                     return;
 
-                BarrelInteractable bi = new BarrelInteractable(a.transform.position, a);
+                BarrelInteractable bi = new BarrelInteractable(a);
 
                 interactables.Add(bi);
 
@@ -389,7 +454,7 @@ namespace src
             {
                 e(a);
 
-                ScrapperInteractable si = new ScrapperInteractable(a.transform.position, a);
+                ScrapperInteractable si = new ScrapperInteractable(a);
 
                 interactables.Add(si);
             };
@@ -420,11 +485,21 @@ namespace src
                 didScrap = true;
             };
 
+            On.RoR2.DroneVendorMultiShopController.Start += (e, a) =>
+            {
+                e(a);
+
+                DroneMultiShopInteractable dmsi = new DroneMultiShopInteractable(a);
+
+                interactables.Add(dmsi);
+
+            };
+
             On.RoR2.MultiShopController.Start += (e, a) =>
             {
                 e(a);
 
-                MultiShopInteractable msi = new MultiShopInteractable(a.transform.position, a);
+                MultiShopInteractable msi = new MultiShopInteractable(a);
 
                 interactables.Add(msi);
             };
@@ -460,11 +535,20 @@ namespace src
                     return;
                 if (a.displayNameToken == "SHRINE_HEALING_NAME")
                     return;
+                if (a.displayNameToken == "SHRINE_RESTACK_NAME") // shrine of order
+                    return;
+                if (a.displayNameToken == "SHRINE_COLOSSUS_NAME") // shrine of shaping
+                    return;
+                if (a.displayNameToken == "SHRINE_CLEANSE_NAME") // cleansing pool
+                    return;
 
                 if (a.displayNameToken == "LOCKEDTREEBOT_NAME")
                     return;
 
                 if (a.displayNameToken == "MULTISHOP_TERMINAL_NAME")
+                    return;
+
+                if (a.displayNameToken == "DRONE_VENDOR_TERMINAL_NAME")
                     return;
 
                 if (a.displayNameToken == "FAN_NAME")
@@ -477,6 +561,18 @@ namespace src
                     return;
 
                 if (a.displayNameToken == "LUNAR_CHEST_NAME" && !cnfgShowLunarPods.Value)
+                    return;
+
+                // Alloyed Collective stuff
+                if (a.displayNameToken == "DRIFTERBAGCHEST_NAME")
+                    return;
+                if (a.displayNameToken == "COINSLOT_STATUE_NAME")
+                    return;
+                if (a.displayNameToken == "BROKENROBOT_NAME")
+                    return;
+                if (a.displayNameToken == "COLLECTIVE_SHRINE_NAME") // collective combat shrine
+                    return;
+                if (a.displayNameToken == "DRONE_SCRAPPER_NAME" && !cnfgShowDroneScrappers.Value)
                     return;
 
                 if (!cnfgShow3DPrinters.Value) // Will still show red and boss printers, since they are more rare and therefore less obtrusive.
@@ -501,13 +597,29 @@ namespace src
                         return;
                     if (a.displayNameToken == "TURRET1_INTERACTABLE_NAME")
                         return;
+
+                    // Alloyed Collective drones
+                    if (a.displayNameToken == "DRONE_JUNK_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_HAULER_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_JAILER_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_CLEANUP_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_COPYCAT_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_RECHARGE_INTERACTABLE_NAME")
+                        return;
+                    if (a.displayNameToken == "DRONE_BOMBARDMENT_INTERACTABLE_NAME")
+                        return;
                 }
 
                 if (a.displayNameToken == "DUPLICATOR_NAME" || a.displayNameToken == "DUPLICATOR_MILITARY_NAME" || a.displayNameToken == "DUPLICATOR_WILD_NAME")
                 {
                     Printer3DInteractable pdi;
 
-                    pdi = new Printer3DInteractable(a.transform.position, a);
+                    pdi = new Printer3DInteractable(a);
 
                     interactables.Add(pdi);
                 }
@@ -515,7 +627,7 @@ namespace src
                 {
                     PurchaseInteractable pi;
 
-                    pi = new PurchaseInteractable(a.transform.position, a);
+                    pi = new PurchaseInteractable(a);
 
                     interactables.Add(pi);
                 }
@@ -525,12 +637,13 @@ namespace src
             {
                 e(a);
 
+
                 if (!cnfgShowItemsOnGround.Value)
                     return;
 
                 if (a.name.Contains("FragmentPotentialPickup") || a.name.Contains("OptionPickup"))
                 {
-                    PotentialInteractable pi = new PotentialInteractable(a.transform.position, a);
+                    PotentialInteractable pi = new PotentialInteractable(a);
 
                     interactables.Add(pi);
                 }
@@ -543,14 +656,24 @@ namespace src
                 if (!cnfgShowItemsOnGround.Value)
                     return;
 
+                if (a.pickup.pickupIndex.pickupDef.nameToken == "ITEM_POWERPYRAMID_NAME")
+                    return;
+
                 if (a.pickup.pickupIndex.pickupDef.equipmentIndex != EquipmentIndex.None)
+                    return;
+
+                if (a.pickup.pickupIndex.pickupDef.isLunar)
+                    return;
+
+
+                if (a.pickup.isTempItem)
                     return;
 
                 ItemTier tier = a.pickup.pickupIndex.pickupDef.itemTier;
                 if (tier == ItemTier.VoidTier1 || tier == ItemTier.VoidTier2 || tier == ItemTier.VoidTier3)
                     return;
 
-                GenericPickupControllerInteractable gpci = new GenericPickupControllerInteractable(a.transform.position, a);
+                GenericPickupControllerInteractable gpci = new GenericPickupControllerInteractable(a);
 
                 interactables.Add(gpci);
             };
@@ -560,7 +683,9 @@ namespace src
                 if (!RoR2Application.isInSinglePlayer)
                     return;
 
-                if (SceneCatalog.currentSceneDef.baseSceneName != "bazaar")
+                string stageName = SceneCatalog.currentSceneDef.baseSceneName;
+
+                if (stageName != "bazaar" && stageName != "solutionalhaunt" && stageName != "solusweb" && stageName != "computationalexchange")
                     StartMissingInteractableFinder();
             };
 
@@ -570,9 +695,7 @@ namespace src
 
                 EndMissingInteractableFinder();
             };
-
         }
-
 
         private void EndMissingInteractableFinder()
         {
@@ -596,13 +719,20 @@ namespace src
             {
                 foreach (var interactable in remainingInteractables)
                 {
-                    interactable.SimulateDrop();
+                    try
+                    {
+                        interactable.SimulateDrop();
+                    }
+                    catch
+                    {
+                        Debug.Log("Uh oh! SimulateDrop failed.");
+                    }
                 }
             }
 
             Time.timeScale = 0f;
             StartCamera();
-            recapRunning = true;
+            recapRunning = true; // move this up?
         }
 
         private void ClearLists()
@@ -620,6 +750,7 @@ namespace src
                 switch (interactables[i])
                 {
                     case PurchaseInteractable pi:
+
                         if (pi.pi == null)
                             break;
                         if (pi.pi.available)
@@ -662,6 +793,13 @@ namespace src
                             remainingInteractables.Add(interactables[i]);
                         break;
 
+                    case DroneMultiShopInteractable dmsi:
+                        if (dmsi.dvmsc == null)
+                            break;
+                        if (dmsi.dvmsc.available)
+                            remainingInteractables.Add(interactables[i]);
+                        break;
+
                     case MultiShopInteractable msi:
                         if (msi.msc == null)
                             break;
@@ -685,7 +823,7 @@ namespace src
             if (index >= remainingInteractables.Count)
                 index = remainingInteractables.Count - 1;
 
-            cama.SetCamPosition(remainingInteractables[index].position + new Vector3(0, 0.5f, 0));
+            cama.SetCamPosition(remainingInteractables[index].GetPosition() + new Vector3(0, 0.5f, 0));
         }
 
         private void DecrementCameraPosition()
@@ -701,7 +839,7 @@ namespace src
             if (index >= remainingInteractables.Count)
                 index = remainingInteractables.Count - 1;
 
-            cama.SetCamPosition(remainingInteractables[index].position + new Vector3(0, 0.5f, 0));
+            cama.SetCamPosition(remainingInteractables[index].GetPosition() + new Vector3(0, 0.5f, 0));
         }
 
         private void StartCamera()
@@ -727,7 +865,9 @@ namespace src
         private void Update()
         {
             if (!recapRunning || RoR2.PauseManager.isPaused)
+            {
                 return;
+            }
 
             if (Input.GetKeyDown(kbGoNext.Value.MainKey))
             {
@@ -859,5 +999,4 @@ namespace src
             return false;
         }
     }
-
 }
