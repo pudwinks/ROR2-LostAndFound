@@ -1,11 +1,11 @@
 # Lost & Found
-##### Updated for Alloyed Collective
+##### Updated for Hallowed Concepts
 
 ##### This mod does work with StageRecap. You might want to turn off the scanner in its config though.
 
 Lost & Found is a mod which pauses time at the end of each stage and gives you a camera view of each interactable you missed, and optionally shows the items that were inside (credit to cyanblur!).
 
-`!WARNING!` May contain spoilers.
+`!WARNING!` May contain spoilers for the game.
 #### *This mod is configurable!*
 
 You can either head to `BepInEx/config/Pudwinks.LostAndFound.cfg` OR use `Risk of Options` to configure it. You get to decide on what to show or hide for the recap, as well as change keybindings to whatever you want.

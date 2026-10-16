@@ -77,7 +77,7 @@ namespace src
                         }
                     }
                 }
-                else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME" &&!cnfgShowVoidKeyContents.Value)
+                else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME" && !cnfgShowVoidKeyContents.Value)
                 {
                     OptionChestBehavior component = pi.GetComponent<OptionChestBehavior>();
                     if (component)
@@ -252,7 +252,7 @@ namespace src
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.2.3";
 
         public static bool recapRunning;
 
@@ -476,6 +476,24 @@ namespace src
                         }
                     }
                 }
+
+                // if we 'purchased' a hollowchest (Concept Reliquary), remove it
+                // this is needed because when we start TP, it deactivates, so it gets removed because of that later when it shouldnt
+                // so instead we always show it and only remove when we purchase it.
+                if (a.displayNameToken == "HOLLOWCHEST_NAME")
+                {
+                    for (int i = 0; i < interactables.Count; i++)
+                    {
+                        if (interactables[i] is PurchaseInteractable pi)
+                        {
+                            if (pi.pi == a)
+                            {
+                                interactables.Remove(interactables[i]);
+                                break;
+                            }
+                        }
+                    }
+                }
             };
 
             On.RoR2.ScrapperController.BeginScrapping_UniquePickup += (e, a, b) =>
@@ -526,6 +544,7 @@ namespace src
                 if (a.name == "PortalDialer")
                     return;
 
+
                 if (a.displayNameToken == "VENDING_MACHINE_NAME")
                     return;
 
@@ -561,6 +580,15 @@ namespace src
                     return;
 
                 if (a.displayNameToken == "LUNAR_CHEST_NAME" && !cnfgShowLunarPods.Value)
+                    return;
+
+                // Quality Mod stuff
+                // commented out for now until further testing
+                //if ((a.GetGameObject()?.name ?? "").Contains("QualityScrapper"))
+                //    return;
+
+                // Hallowed Concepts stuff
+                if ((a.GetGameObject()?.name ?? "").ToUpper().Contains("MIMIC")) // mimics
                     return;
 
                 // Alloyed Collective stuff
@@ -637,7 +665,6 @@ namespace src
             {
                 e(a);
 
-
                 if (!cnfgShowItemsOnGround.Value)
                     return;
 
@@ -664,7 +691,6 @@ namespace src
 
                 if (a.pickup.pickupIndex.pickupDef.isLunar)
                     return;
-
 
                 if (a.pickup.isTempItem)
                     return;
@@ -750,6 +776,14 @@ namespace src
                 switch (interactables[i])
                 {
                     case PurchaseInteractable pi:
+
+                        // Add the hollow chest regardless, because it may be disabled because of TP and not because you found/purchased it.
+                        // it's removed earlier if you did indeed purchase it.
+                        if (pi.pi?.displayNameToken == "HOLLOWCHEST_NAME")
+                        {
+                            remainingInteractables.Add(interactables[i]);
+                            break;
+                        }
 
                         if (pi.pi == null)
                             break;

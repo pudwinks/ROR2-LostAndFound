@@ -1,3 +1,10 @@
+## 1.2.3
+Updated for Hallowed Concepts
+
+Now shows Concept Reliquarys
+
+No longer shows mimic chests
+
 ## 1.2.2
 General cleanup for Alloyed Collective update
 
