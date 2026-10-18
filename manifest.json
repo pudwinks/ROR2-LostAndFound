@@ -1,6 +1,6 @@
 {
     "name": "LostAndFound",
-    "version_number": "1.2.3",
+    "version_number": "1.2.4",
     "website_url": "https://github.com/pudwinks/ROR2-LostAndFound",
     "description": "Pauses time and gives you a camera view of each interactable you missed at the end of the stage. Configurable.",
     "dependencies": [

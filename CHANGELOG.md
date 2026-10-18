@@ -1,3 +1,9 @@
+## 1.2.4
+Hopefully fixed softlock bug
+
+Feature: Added text that shows progress in recap (like 1/14)
+You can also disable this in the config
+
 ## 1.2.3
 Updated for Hallowed Concepts
 
