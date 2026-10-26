@@ -31,6 +31,14 @@ You do not need to restart the game to apply the changes using `Risk Of Options`
 `S` to end the recap and resume time.
 
 These are all configurable. Set them to whatever you want - these are just the defaults.
+
+## Credits
+`Pudwinks` (me)
+
+`cyanblur` for the orbs that show what item is in the chests in the recap
+
+And everyone who reports bugs to the GitHub page!
+
 ## FAQ
 ### Does this mod work in multiplayer?
 No. It is disabled for multiplayer.

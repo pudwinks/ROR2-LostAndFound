@@ -1,3 +1,14 @@
+## 1.2.5
+Now shows the secret N'tormat pages in the recap (along with a config for this)
+
+Fixed bug with quality 3D printers from the Quality mod showing despite using them
+
+Fixed bug on Verdant Falls showing the chest/scrapper twice in the recap
+
+No longer shows recap on the moon
+
+Thanks to cyanblur for the help with this patch!
+
 ## 1.2.4
 Hopefully fixed softlock bug
 

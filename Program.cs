@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using RoR2;
+using RoR2.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
@@ -10,12 +12,12 @@ namespace LostAndFound
 {
     [BepInDependency(RiskOfOptions.PluginInfo.PLUGIN_GUID, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
-    public class InteractableLedgerPlugin : BaseUnityPlugin
+    public class LostAndFoundPlugin : BaseUnityPlugin
     {
         public const string PluginGUID = PluginAuthor + "." + PluginName;
         public const string PluginAuthor = "Pudwinks";
         public const string PluginName = "LostAndFound";
-        public const string PluginVersion = "1.2.4";
+        public const string PluginVersion = "1.2.5";
 
         public static readonly List<Interactable> interactables = new List<Interactable>();
 
@@ -28,11 +30,15 @@ namespace LostAndFound
         private static ConfigEntry<bool> showBarrels;
         private static ConfigEntry<bool> showContents;
         public static ConfigEntry<bool> showVoidKeyContents;
+        public static ConfigEntry<bool> showSecretNtormatPages;
         private static ConfigEntry<bool> showText;
         private static ConfigEntry<int> textSize;
         private static ConfigEntry<int> textBottomOffset;
 
         internal static GameObject effectPrefab;
+
+        private static GameObject textCanvas;
+        private static HGTextMeshProUGUI recapText;
 
         public static bool didScrap;
 
@@ -95,6 +101,10 @@ namespace LostAndFound
             showVoidKeyContents = Config.Bind("General", "Show Encrusted Cache contents", true,
                 "Set to true if you want to see the contents of Encrusted Caches (corrupted form of the Rusted Key lockbox). Irrelevant if \"Show container contents\" is false.");
             RiskOfOptionsStuff.AddOption(showVoidKeyContents);
+
+            showSecretNtormatPages = Config.Bind("General", "Show secret Ntormat pages", true,
+               "Set to true if you want to see the secret Ntormat pages on the ground in the recap.");
+            RiskOfOptionsStuff.AddOption(showSecretNtormatPages);
 
             showText = Config.Bind("General", "Show recap text", true,
                 "Set to true if you want to see the recap counter text (e.g. 3/17) at the bottom of the screen.");
@@ -160,6 +170,9 @@ namespace LostAndFound
             On.RoR2.SceneExitController.SetState -= SceneExitController_SetState;
             On.RoR2.Run.OnDestroy -= Run_OnDestroy;
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+
+            if (textCanvas)
+                Destroy(textCanvas);
         }
 
         private void Update()
@@ -200,21 +213,47 @@ namespace LostAndFound
             ApplyCamera();
         }
 
-        private void OnGUI()
+        private void LateUpdate()
         {
-            if (heldExit == null || currentIndex < 0)
-                return;
+            bool visible = heldExit != null && currentIndex >= 0 && showText.Value && !PauseManager.PauseScreenIsOpen();
 
-            if (!showText.Value)
+            if (!visible)
+            {
+                if (textCanvas)
+                    textCanvas.SetActive(false);
                 return;
+            }
 
-            if (PauseManager.PauseScreenIsOpen())
-                return;
+            // Created lazily so HGTextMeshProUGUI picks up the language font, which isn't loaded yet in Awake
+            if (!textCanvas)
+                CreateRecapText();
 
-            GUIStyle style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = textSize.Value };
-            GUIContent text = new GUIContent($"{currentIndex + 1}/{interactables.Count}");
-            Vector2 size = style.CalcSize(text);
-            GUI.Label(new Rect((Screen.width - size.x) / 2f, Screen.height - size.y - textBottomOffset.Value, size.x, size.y), text, style);
+            textCanvas.SetActive(true);
+            recapText.fontSize = textSize.Value;
+            recapText.rectTransform.anchoredPosition = new Vector2(0f, textBottomOffset.Value);
+            recapText.text = $"{currentIndex + 1}/{interactables.Count}";
+        }
+
+        private static void CreateRecapText()
+        {
+            textCanvas = new GameObject("LostAndFoundRecapCanvas");
+            DontDestroyOnLoad(textCanvas);
+
+            Canvas canvas = textCanvas.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 100;
+
+            GameObject textObject = new GameObject("RecapText", typeof(RectTransform));
+            textObject.transform.SetParent(textCanvas.transform, false);
+
+            recapText = textObject.AddComponent<HGTextMeshProUGUI>();
+            recapText.alignment = TextAlignmentOptions.Bottom;
+            recapText.enableWordWrapping = false;
+            recapText.raycastTarget = false;
+
+            RectTransform rect = recapText.rectTransform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(2000f, 400f);
         }
 
         private static Vector2 ReadMouseLook()
@@ -352,7 +391,18 @@ namespace LostAndFound
             if (!showItemsOnGround.Value)
                 return;
 
+            // Hallowed Concepts secret N'tormat pages
+            // has to be done here, because it doesn't have a pickupDef here
+            if (self.GetComponent<PagePotentialPicker>() && showSecretNtormatPages.Value)
+            {
+                interactables.Add(new NtormatPageInteractable(self));
+                return;
+            }
+
             PickupDef pickupDef = self.pickup.pickupIndex.pickupDef;
+
+            if (pickupDef == null)
+                return;
 
             if (pickupDef.nameToken == Blacklists.powerPyramidName)
                 return;
@@ -408,7 +458,7 @@ namespace LostAndFound
                 {
                     // Skip recap on these stages
                     string stageName = SceneCatalog.currentSceneDef?.baseSceneName;
-                    if (stageName == "bazaar" || stageName == "solutionalhaunt" || stageName == "solusweb" || stageName == "computationalexchange")
+                    if (stageName == "bazaar" || stageName == "solutionalhaunt" || stageName == "solusweb" || stageName == "computationalexchange" || stageName == "moon2")
                     {
                         orig(self, newState);
                         return;

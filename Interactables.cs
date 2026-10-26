@@ -24,7 +24,7 @@ namespace LostAndFound
             };
 
             effectData.SetNetworkedObjectReference(targetObject);
-            EffectManager.SpawnEffect(InteractableLedgerPlugin.effectPrefab, effectData, transmit: false);
+            EffectManager.SpawnEffect(LostAndFoundPlugin.effectPrefab, effectData, transmit: false);
         }
 
         // Shared by PurchaseInteractable and HollowChestInteractable.
@@ -57,7 +57,7 @@ namespace LostAndFound
                     }
                 }
             }
-            else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME" && !InteractableLedgerPlugin.showVoidKeyContents.Value)
+            else if (pi.displayNameToken == "VOID_TRIPLE_NAME" || pi.displayNameToken == "VOIDLOCKBOX_NAME" && !LostAndFoundPlugin.showVoidKeyContents.Value)
             {
                 OptionChestBehavior component = pi.GetComponent<OptionChestBehavior>();
                 if (component)
@@ -125,6 +125,11 @@ namespace LostAndFound
             "DUPLICATOR_NAME",
             "DUPLICATOR_MILITARY_NAME",
             "DUPLICATOR_WILD_NAME",
+
+            // Quality mod
+            "DUPLICATOR_QUALITY_NAME",
+            "DUPLICATOR_MILITARY_QUALITY_NAME",
+            "DUPLICATOR_WILD_QUALITY_NAME",
         };
 
         public readonly PurchaseInteraction pi;
@@ -250,7 +255,7 @@ namespace LostAndFound
             return sc.transform.position;
         }
 
-        public override bool IsAvailable => sc && !InteractableLedgerPlugin.didScrap;
+        public override bool IsAvailable => sc && sc.gameObject.activeInHierarchy && !LostAndFoundPlugin.didScrap;
     }
 
     // An item left on the ground.
@@ -269,6 +274,20 @@ namespace LostAndFound
         }
 
         public override bool IsAvailable => gpc && !gpc.consumed;
+    }
+
+    public class NtormatPageInteractable : GenericPickupControllerInteractable
+    {
+        public NtormatPageInteractable(GenericPickupController pickup) : base(pickup) { }
+
+        public override void SimulateDrop()
+        {
+            PickupDef pickupDef = PickupCatalog.GetPickupDef(gpc.pickup.pickupIndex);
+            if (pickupDef != null)
+            {
+                CreateDropOrb(gpc.transform.position + new Vector3(0, 3.5f, 0), gpc.gameObject, pickupDef);
+            }
+        }
     }
 
     // A void potential or halcyonite fragment pickup on the ground. It's destroyed once picked.
